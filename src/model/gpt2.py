@@ -20,3 +20,19 @@ class GPT2(nn.Module):
 
         # weight sharing scheme
         self.transformer.wte.weight = self.lm_head.weight
+
+    # Function to initialize the weights according to the GPT paper. We don't change the Layer Norm initialization as Pytorch is already handling it right. 
+    # One common indicator for the initial standard deviation is 1/sqrt(number of features in the incoming layer)
+    def init_weights(self, module):
+        if isinstance(module, nn.Linear):
+            std = 0.02
+
+            if hasattr(module, 'WEIGHT_SCALE_INIT'):
+                std *= (2*self.config.n_layer)**-0.5 # two blocks are adding to the residual pathway (the attention and the MLP, hence the factor 2). To avoid the variance growing too much, we are initializing with 1/sqrt(N)
+            nn.init.normal_(module.weight, mean=0.0, std = std) #initialize the weights using a normal distribution
+
+            if module.bias is not None:
+                nn.init.zeros_(module.bias) # initialize the biases with zeros
+
+        elif isinstance(module, nn.Embedding): 
+            nn.init.normal_(module.weight, mean = 0.0, std = 0.02) # initialize the embeddings with a normal distribution

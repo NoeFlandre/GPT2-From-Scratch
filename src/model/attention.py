@@ -11,6 +11,7 @@ class CausalSelfAttention(nn.Module):
         assert config.n_embd % config.n_head == 0 # checking if the embedding dimension is divisible by the number of attention heads
         self.attn = nn.Linear(config.n_embd, 3 * config.n_embd) # Linear layer to project the input tensor to a 3D tensor which will later define the query, key and value
         self.proj = nn.Linear(config.n_embd, config.n_embd) # Linear layer to project the output of the attention layer back to the embedding dimension
+        self.proj.WEIGHT_SCALE_INIT = 1 # flag for weights intialization
         self.n_head = config.n_head # number of attention heads
         self.n_embd = config.n_embd # embedding dimension
     

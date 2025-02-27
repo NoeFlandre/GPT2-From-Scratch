@@ -1,10 +1,11 @@
 """
 GPT2 Model Implementation
 """
-
+import torch
 import torch.nn as nn
 from model.block import Block
 from model.config import GPT2Config
+from torch.nn import functional as F
 
 class GPT2(nn.Module):
     def __init__(self, config): # call the constructor of nn.Module
@@ -38,3 +39,26 @@ class GPT2(nn.Module):
 
         elif isinstance(module, nn.Embedding): 
             nn.init.normal_(module.weight, mean = 0.0, std = 0.02) # initialize the embeddings with a normal distribution
+    
+    def forward(self, idx, targets = None):
+        #idx is of shape (B, T)
+        B, T = idx.size()
+        assert T <= self.config.block_size, f"Cannot forward sequence of length {T}, block size is {self.config.block_size}"
+
+        # forward the token and position embeddings
+        pos = torch.arange(0, T, dtype=torch.long, device = idx.device) 
+        pos_emb = self.transformer.wpe(pos) # position embeddings 
+        tok_emb = self.tranformer.wte(idx) # token embeddings 
+        x = pos_emb + tok_emb # summing the position and token embeddings
+
+        # forward the blocks of the transformer
+        for block in self.transformer.h:
+            x = block(x)
+        
+        # forward the final layernorm and the classifier
+        x = self.transformer.ln_f(x)
+        logits = self.lm_head(x) # (B, T, vocab_size)
+        loss = None
+        if targets is not None:
+            loss = F.cross_entropy(logits.view(-1, logits.size(-1)), targets.view(-1))
+        return logits, loss

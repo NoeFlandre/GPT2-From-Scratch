@@ -21,6 +21,8 @@ class GPT2(nn.Module):
         # weight sharing scheme
         self.transformer.wte.weight = self.lm_head.weight
 
+        self.apply(self.init_weights) #initialize the weights
+
     # Function to initialize the weights according to the GPT paper. We don't change the Layer Norm initialization as Pytorch is already handling it right. 
     # One common indicator for the initial standard deviation is 1/sqrt(number of features in the incoming layer)
     def init_weights(self, module):

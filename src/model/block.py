@@ -2,8 +2,8 @@
 Transformer Block
 """
 import torch.nn as nn
-from model.attention import CausalSelfAttention
-from model.mlp import MLP
+from src.model.attention import CausalSelfAttention
+from src.model.mlp import MLP
 
 class Block(nn.Module):
     def __init__(self, config):

@@ -1,18 +1,29 @@
 """
-Data Loader
+Data Loading Utilities
 """
+import os
 import tiktoken
 import torch
 
-class DataLoader : # class to load our document in batches
-    def __init__(self, B, T, process_rank, num_processes):
+class DataLoader:
+    def __init__(self, B, T, process_rank, num_processes, data_file='data/moliere.txt'):
         self.B = B
         self.T = T
         self.process_rank = process_rank
         self.num_processes = num_processes
 
-        with open('GPT2-From-Scratch/data/moliere.txt', 'r') as f:
+        # Get the project root directory
+        project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '../..'))
+        data_path = os.path.join(project_root, data_file)
+
+        if not os.path.exists(data_path):
+            raise FileNotFoundError(
+                f"Data file not found at {data_path}"
+            )
+
+        with open(data_path, 'r', encoding='utf-8') as f:
             text = f.read()
+        
         enc = tiktoken.get_encoding('gpt2')
         tokens = enc.encode(text)
         self.tokens = torch.tensor(tokens)

@@ -3,13 +3,14 @@ GPT2 Model Implementation
 """
 import torch
 import torch.nn as nn
-from model.block import Block
-from model.config import GPT2Config
+from src.model.block import Block
+from src.model.config import GPT2Config
 from torch.nn import functional as F
 import inspect
 
 class GPT2(nn.Module):
     def __init__(self, config): # call the constructor of nn.Module
+        super().__init__()
         self.config = config
 
         self.transformer = nn.ModuleDict(dict( # we organize our submodules using a dictionary
@@ -49,7 +50,7 @@ class GPT2(nn.Module):
         # forward the token and position embeddings
         pos = torch.arange(0, T, dtype=torch.long, device = idx.device) 
         pos_emb = self.transformer.wpe(pos) # position embeddings 
-        tok_emb = self.tranformer.wte(idx) # token embeddings 
+        tok_emb = self.transformer.wte(idx) # token embeddings 
         x = pos_emb + tok_emb # summing the position and token embeddings
 
         # forward the blocks of the transformer

@@ -18,12 +18,12 @@ class CausalSelfAttention(nn.Module):
     def forward(self, x):
         B, T, C = x.size() # B = batch size, T = sequence length, C = embedding dimension
         qkv = self.attn(x) # 
-        q, k, v = qkv.split(self.embd, dim=2) # split the 3D tensor into 3 2D tensors (Queries, Keys, Values)
+        q, k, v = qkv.split(self.n_embd, dim=2) # split the 3D tensor into 3 2D tensors (Queries, Keys, Values)
 
         #allows parallel computation of the attention mechanism across multiple heads
-        k = k.view(B, T, self.n_head, C // self.n_embd).transpose(1, 2) # reshape the keys tensor to (B, T, n_head, head_dim) and transpose it to (B, n_head, T, head_dim)
-        q = q.view(B, T, self.n_head, C // self.n_embd).transpose(1, 2) # reshape the queries tensor to (B, T, n_head, head_dim) and transpose it to (B, n_head, T, head_dim)
-        v = v.view(B, T, self.n_head, C // self.n_embd).transpose(1, 2) # reshape the values tensor to (B, T, n_head, head_dim) and transpose it to (B, n_head, T, head_dim)
+        k = k.view(B, T, self.n_head, C // self.n_head).transpose(1, 2) # reshape the keys tensor to (B, T, n_head, head_dim) and transpose it to (B, n_head, T, head_dim)
+        q = q.view(B, T, self.n_head, C // self.n_head).transpose(1, 2) # reshape the queries tensor to (B, T, n_head, head_dim) and transpose it to (B, n_head, T, head_dim)
+        v = v.view(B, T, self.n_head, C // self.n_head).transpose(1, 2) # reshape the values tensor to (B, T, n_head, head_dim) and transpose it to (B, n_head, T, head_dim)
 
         # using flash attention for efficiency (kernel fusion)
         y = F.scaled_dot_product_attention(q, k, v, is_causal=True) # apply scaled dot product attention and applies masking to avoid processing future tokens

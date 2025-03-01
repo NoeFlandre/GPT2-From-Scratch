@@ -6,6 +6,7 @@ import sys
 import time
 import torch
 import torch.nn as nn
+import torch.distributed as dist
 from torch.nn.parallel import DistributedDataParallel as DDP
 
 # Add the project root directory to the Python path

@@ -36,6 +36,9 @@ def main():
     if torch.cuda.is_available():
         torch.cuda.manual_seed(42)
 
+    # Set matmul precision to high for better performance
+    torch.set_float32_matmul_precision('high')
+
     # Training hyperparameters
     total_batch_size = 524288  # on GPU 524288 2**19 (roughly 0.5M tokens)
     micro_batch_size = 2  # on GPU 16 micro batch size

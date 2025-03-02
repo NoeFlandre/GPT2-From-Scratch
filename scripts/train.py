@@ -9,6 +9,8 @@ import torch.nn as nn
 import torch.distributed as dist
 from torch.nn.parallel import DistributedDataParallel as DDP
 
+# torchrun --standalone --nproc_per_node=2 train.py
+
 # Add the project root directory to the Python path
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 sys.path.insert(0, project_root)
@@ -35,9 +37,9 @@ def main():
         torch.cuda.manual_seed(42)
 
     # Training hyperparameters
-    total_batch_size = 8192  # on GPU 524288 2**19 (roughly 0.5M tokens)
-    micro_batch_size = 1  # on GPU 16 micro batch size
-    sequence_length = 256  # 1024 sequence length
+    total_batch_size = 524288  # on GPU 524288 2**19 (roughly 0.5M tokens)
+    micro_batch_size = 2  # on GPU 16 micro batch size
+    sequence_length = 1024  # 1024 sequence length
     assert total_batch_size % (micro_batch_size * sequence_length * dist_env['world_size']) == 0
     grad_accum_steps = total_batch_size // (micro_batch_size * sequence_length * dist_env['world_size'])
 

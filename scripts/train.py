@@ -123,7 +123,6 @@ def main():
                 f"Grad Norm {norm:.4f} | "
                 f"LR {lr:.4e} | "
                 f"Time {dt:.2f}ms | "
-                f"Memory {torch.cuda.memory_allocated()/1e9:.2f}GB | "
                 f"Tokens/s {tokens_per_second:.2f}"
             )
 

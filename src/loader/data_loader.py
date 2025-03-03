@@ -6,7 +6,7 @@ import tiktoken
 import torch
 
 class DataLoader:
-    def __init__(self, B, T, process_rank, num_processes, data_file='data/moliere.txt'):
+    def __init__(self, B, T, process_rank, num_processes, data_file='data/moliere.txt', master_process=True):
         self.B = B
         self.T = T
         self.process_rank = process_rank
@@ -27,8 +27,9 @@ class DataLoader:
         enc = tiktoken.get_encoding('gpt2')
         tokens = enc.encode(text)
         self.tokens = torch.tensor(tokens)
-        print(f"Data loaded with {len(self.tokens)} tokens") # number of tokens loaded
-        print(f"1 epoch = {len(self.tokens) // (self.B * self.T)} batches") # number of batches during 1 epoch
+        if master_process:
+            print(f"Data loaded with {len(self.tokens)} tokens") # number of tokens loaded
+            print(f"1 epoch = {len(self.tokens) // (self.B * self.T)} batches") # number of batches during 1 epoch
 
         self.current_position = self.B * self.T * self.process_rank # setting the current position
 

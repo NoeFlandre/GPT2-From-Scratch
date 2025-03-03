@@ -22,10 +22,7 @@ from src.utils.distributed import setup_distributed, cleanup_distributed
 from src.utils.scheduler import get_lr
 
 def main():
-    # Set up environment variables for distributed training
-    os.environ["MASTER_ADDR"] = "localhost"
-    os.environ["MASTER_PORT"] = "12355"
-
+    
     # Set up distributed environment
     dist_env = setup_distributed()
     device = dist_env['device']
@@ -50,12 +47,15 @@ def main():
         print(f"Total desired batch size: {total_batch_size}")
         print(f"Gradient accumulation steps: {grad_accum_steps}")
 
+    print("I am GPU", dist_env['rank'])
+
     # Initialize data loader
     train_loader = DataLoader(
         B=micro_batch_size,
         T=sequence_length,
         process_rank=dist_env['rank'],
-        num_processes=dist_env['world_size']
+        num_processes=dist_env['world_size'],
+        master_process=master_process
     )
 
     # Initialize model
@@ -72,7 +72,8 @@ def main():
     optimizer = raw_model.configure_optimizers(
         weight_decay=0.1,
         learning_rate=6e-4,
-        device=device
+        device=device,
+        master_process=master_process
     )
 
     # Training loop
@@ -117,7 +118,7 @@ def main():
             dt = (t1 - t0) * 1000  # ms
             tokens_per_second = (train_loader.B * train_loader.T * grad_accum_steps * dist_env['world_size']) / (t1 - t0)
             print(
-                f"Step {step} | "
+                f"Step {step:4d} | "
                 f"Loss {loss_accum.item():.6f} | "
                 f"Grad Norm {norm:.4f} | "
                 f"LR {lr:.4e} | "

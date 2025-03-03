@@ -8,10 +8,9 @@ from torch.nn.parallel import DistributedDataParallel as DDP
 
 def setup_distributed():
     """Set up distributed training environment"""
-    ddp = int(os.environ.get("WORLD_SIZE", 1)) > 1
+    ddp = int(os.environ.get('RANK', -1)) != -1
 
     if ddp:
-        print("Running in Distributed Data Parallel (DDP) mode!")
         assert torch.cuda.is_available()
         dist.init_process_group(backend='nccl')
         ddp_rank = int(os.environ['RANK'])
@@ -20,6 +19,8 @@ def setup_distributed():
         device = f'cuda:{ddp_local_rank}'
         torch.cuda.set_device(device)
         master_process = ddp_rank == 0
+        if master_process:
+            print("Running in Distributed Data Parallel (DDP) mode!")
     else:
         print("Running in single-GPU (non-DDP) mode")
         ddp_rank = 0

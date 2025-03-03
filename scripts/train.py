@@ -38,8 +38,8 @@ def main():
     # Training hyperparameters
     max_steps = 19073 # 10e9 tokens / 2**19 tokens per step
     total_batch_size = 524288  # 2**19
-    micro_batch_size = 16  # 16 micro batch size (try to fit more depending on config)
-    sequence_length = 1024  # 1024 sequence length
+    micro_batch_size = 64  # micro batch size (try to fit more depending on config)
+    sequence_length = 1024  # sequence length
     assert total_batch_size % (micro_batch_size * sequence_length * dist_env['world_size']) == 0
     grad_accum_steps = total_batch_size // (micro_batch_size * sequence_length * dist_env['world_size'])
 
@@ -47,7 +47,6 @@ def main():
         print(f"Total desired batch size: {total_batch_size}")
         print(f"Gradient accumulation steps: {grad_accum_steps}")
 
-    print("I am GPU", dist_env['rank'])
 
     # Initialize data loader
     train_loader = DataLoader(
@@ -56,6 +55,15 @@ def main():
         process_rank=dist_env['rank'],
         num_processes=dist_env['world_size'],
         split="train",
+        master_process=master_process
+    )
+
+    val_loader = DataLoader(
+        B=micro_batch_size,
+        T=sequence_length,
+        process_rank=dist_env['rank'],
+        num_processes=dist_env['world_size'],
+        split="val",
         master_process=master_process
     )
 
@@ -80,6 +88,29 @@ def main():
     # Training loop
     for step in range(max_steps): 
         t0 = time.time()
+
+        # once in a while evaluate our validation loss
+        if step % 100 == 0 and step > 0:
+            model.eval()
+            val_loader.reset()
+            with torch.no_grad():
+                val_loss_accum = 0.0
+                val_loss_steps = 20
+                for _ in range(val_loss_steps):
+                    x, y = val_loader.next_batch()
+                    x, y = x.to(device), y.to(device)
+                    with torch.autocast(device_type=device, dtype=torch.bfloat16):
+                        logits, loss = model(x, y)
+                    loss = loss / val_loss_steps
+                    val_loss_accum += loss.detach()
+                    
+            if dist_env['ddp']:
+                dist.all_reduce(val_loss_accum, op=dist.ReduceOp.AVG)
+            if master_process:
+                print(f"validation loss: {val_loss_accum.item():.4f}")
+
+        # training loop
+        model.train()
         optimizer.zero_grad()
         loss_accum = 0.0
 

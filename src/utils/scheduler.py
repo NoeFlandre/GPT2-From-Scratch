@@ -2,8 +2,8 @@ import math
 
 max_lr = 6e-4
 min_lr = max_lr*0.1
-warmup_steps = 10
-max_steps = 50
+warmup_steps = 715 # 375e6 tokens (number of tokens used to warm up by GPT3 paper) / 2**19 tokens
+max_steps = 19073 # 10e9 tokens / 2**19 tokens
 
 def get_lr(it):
 

@@ -36,9 +36,9 @@ def main():
     torch.set_float32_matmul_precision('high')
 
     # Training hyperparameters
-    max_steps = 50
-    total_batch_size = 524288  # on GPU 524288 2**19 (roughly 0.5M tokens)
-    micro_batch_size = 16  # on GPU 16 micro batch size
+    max_steps = 19073 # 10e9 tokens / 2**19 tokens per step
+    total_batch_size = 524288  # 2**19
+    micro_batch_size = 16  # 16 micro batch size (try to fit more depending on config)
     sequence_length = 1024  # 1024 sequence length
     assert total_batch_size % (micro_batch_size * sequence_length * dist_env['world_size']) == 0
     grad_accum_steps = total_batch_size // (micro_batch_size * sequence_length * dist_env['world_size'])
@@ -55,6 +55,7 @@ def main():
         T=sequence_length,
         process_rank=dist_env['rank'],
         num_processes=dist_env['world_size'],
+        split="train",
         master_process=master_process
     )
 

@@ -6,6 +6,8 @@ import tiktoken
 import torch
 import numpy as np
 
+# One improvement would be to shuffle the documents in the dataset when running the next epoch because the order of the documents should not matter
+
 
 # load the tokens from a numpy file and return a torch tensor
 def load_tokens(filename):

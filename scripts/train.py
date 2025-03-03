@@ -38,8 +38,8 @@ def main():
     # Training hyperparameters
     max_steps = 19073 # 10e9 tokens / 2**19 tokens per step
     total_batch_size = 524288  # 2**19
-    micro_batch_size = 64  # micro batch size (try to fit more depending on config)
-    sequence_length = 1024  # sequence length
+    micro_batch_size = 64  # micro batch size (try to fit more depending on config). To stick to GPT2 we would use 32
+    sequence_length = 1024  # sequence length. True GPT2 is using 2048
     assert total_batch_size % (micro_batch_size * sequence_length * dist_env['world_size']) == 0
     grad_accum_steps = total_batch_size // (micro_batch_size * sequence_length * dist_env['world_size'])
 

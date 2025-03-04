@@ -1,6 +1,13 @@
 # GPT2-From-Scratch
 
-A repository where I try to code GPT-2 from scratch by learning from Andrej Karpathy.
+A repository where I try to code GPT-2 from scratch by learning from Andrej Karpathy. The main goal of this project is to understand how is a GPT like model working under hood by implementing it. This model tries to stick as close as possible to the information given in the GPT2 and GPT2 paper and as mentionned above, I implemented it by relying highly on this tutorial which is pure gold : https://youtu.be/l8pRSuU81PU?si=adpI_CVHitmNdv9G
+
+## Description and further details
+
+- In order to test the model througout its construction, I used a tiny dataset (moliere.txt) which is containing the writings from Moliere. 
+- Once the model was mature enough to get trained on some legit data, I followed Andrej Karpathy's choice to train on FineWebEdu in order to make sure to use high quality data.
+- Regarding the compute for this project, I rented 2x(H100 80Gb 700W) GPUs on https://cloud.vast.ai. We have to make sure to rent an instance having enough disk space, which is set very low by default on vast.ai.
+
 
 ## Useful Commands and Learnings
 
@@ -104,6 +111,7 @@ While working on this project, I've learned some useful commands and techniques,
        - 100M tokens per shard
        - Separate train/validation splits
        - Adding EOT tokens between documents
+       - One note regarding the documents, these need to be shuffled if we ever train on several epochs as their order should not matter
 
    - **Model Initialization**
      - Zero initialization for biases

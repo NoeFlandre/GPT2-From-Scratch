@@ -8,6 +8,7 @@ import torch
 import torch.nn as nn
 import torch.distributed as dist
 from torch.nn.parallel import DistributedDataParallel as DDP
+import tiktoken
 
 # torchrun --standalone --nproc_per_node=2 train.py
 
@@ -31,6 +32,8 @@ def main():
     # Set random seeds for reproducibility
     torch.manual_seed(42)
     torch.cuda.manual_seed(42)
+
+    tokenizer = tiktoken.get_encoding("gpt2")
 
     # Set matmul precision to high for better performance
     torch.set_float32_matmul_precision('high')
@@ -70,7 +73,7 @@ def main():
     # Initialize model
     model = GPT2(GPT2Config(vocab_size=50304))  # Using power of 2 for efficiency
     model.to(device)
-    model = torch.compile(model)  # Enable torch.compile for optimization
+    model = torch.compile(model)  # Enable torch.compile for optimization. If error with the sampling part, comment this line
     
     if dist_env['ddp']:
         model = DDP(model, device_ids=[dist_env['local_rank']])
@@ -108,6 +111,32 @@ def main():
                 dist.all_reduce(val_loss_accum, op=dist.ReduceOp.AVG)
             if master_process:
                 print(f"validation loss: {val_loss_accum.item():.4f}")
+
+        # once in a while we sample from the model, except for the first step
+        if step % 100 == 0 and step > 0:
+            model.eval()
+            num_return_sequences = 4 # number of samples to generate
+            max_length = 32 # maximum length of the generated text
+            tokens = tokenizer.encode("Hello, I am") # initial tokens
+            tokens = torch.tensor(tokens, dtype=torch.long) # convert to tensor
+            tokens = tokens.unsqueeze(0).repeat(num_return_sequences, 1) # repeat for each sample by adding 1 dimension and repeating the tokens
+            tokens_gen = tokens.to(device) # move to device
+            sample_rng = torch.Generator(device=device).manual_seed(42 + dist_env['rank']) # set seed for reproducibility and different for each process
+            while tokens_gen.size(1) < max_length:
+                # generate logits by forward pass
+                with torch.no_grad():
+                    logits, loss = model(tokens_gen) # forward pass (B, T, vocab_size)
+                    logits = logits[:, -1, :] # get the last token logits (B, vocab_size)
+                    probs = nn.functional.softmax(logits, dim=-1) # apply softmax to get probabilities 
+                    topk_probs, topk_indices = torch.topk(probs, 50, dim=-1) # get the top 50 probabilities and indices (B, 50)
+                    ix = torch.multinomial(topk_probs, num_samples=1, generator=sample_rng) # sample from the top 50 probabilities (B, 1)
+                    xcol = torch.gather(topk_indices, dim=-1, index=ix) # gather the corresponding indices (B, 1)
+                    tokens_gen = torch.cat((tokens_gen, xcol), dim=1) # concatenate the new tokens (B, T+1)
+                # print the generated text
+            for i in range(num_return_sequences):
+                tokens = tokens_gen[i, :max_length].tolist()
+                decoded = tokenizer.decode(tokens)
+                print(f"rank {dist_env['rank']} sample {i}: {decoded}")
 
         # training loop
         model.train()

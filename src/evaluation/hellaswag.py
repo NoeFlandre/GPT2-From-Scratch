@@ -8,7 +8,7 @@ as options: the correct answer and three distractors.
 
 sequence = [[context, option1], [context, option2], [context, option3], [context, option4]], one of the options being the correct answer. T is defined as the maximum length of the sequence on each example.
 
-For the rows no being of the same length than max length, we use a mask to set these padding tokens to 0. We are going for each row to compute the cross entropy loss and pick the lowest as the prediction.
+For the rows not being of the same length than max length, we use a mask to set these padding tokens to 0. We are going for each row to compute the cross entropy loss and pick the lowest as the prediction.
 
 Example HellaSwag json item:
 
@@ -25,6 +25,8 @@ source_id: Which video or WikiHow article this example came from
 GPT2 124M model performs acc_norm: 0.2955 (completion style)
 
 The validation set of HellaSwag has a total of 10,042 examples.
+
+Results for gpt2: 10042 acc_norm: 2967/10042=0.2955
 
 """
 
@@ -118,9 +120,9 @@ def render_hellaswag_example(example:dict):
     tokens = torch.zeros(4, max_length, dtype=torch.long)
     mask = torch.zeros(4, max_length, dtype=torch.long)
 
-    for i, (tokens, mask) in enumerate(zip(token_rows, mask_rows)):
-        tokens[i, :len(token_rows)] = torch.tensor(token_rows)
-        mask[i, :len(mask_rows)] = torch.tensor(mask_rows)
+    for i, (tok_row, mask_row) in enumerate(zip(token_rows, mask_rows)):
+        tokens[i, :len(tok_row)] = torch.tensor(tok_row)
+        mask[i, :len(mask_row)] = torch.tensor(mask_row)
     
     return data, tokens, mask, label
 
@@ -139,5 +141,69 @@ def iterate_examples(split):
     
                 
 @torch.no_grad() # decorate the function to avoid computing the gradient during evaluation
-def evaluate_mdoel(model, data_loader):
-    pass
+def evaluate_model(model_type, device):
+    torch.set_float32_matmul_precision("high") # we want to use tf32 as it speeds up the computation while keeping a good numerical accuracy
+    model = GPT2LMHeadModel.from_pretrained(model_type) # we use GPT2 
+    
+    # Check if CUDA is available, if not use CPU
+    if device == "cuda" and not torch.cuda.is_available():
+        print("CUDA is not available, using CPU instead")
+        device = "cpu"
+    
+    model.to(device)
+    #model = torch.compile(model) # torch compile is creating error with the evaluation
+
+    # Initialize counters
+    num_correct = 0
+    num_correct_normalized = 0
+    total = 0
+
+    for example in iterate_examples("val"):
+        data, tokens, mask, label = render_hellaswag_example(example)
+        tokens = tokens.to(device)
+        mask = mask.to(device)
+        
+        #get the logits
+        logits = model(tokens).logits # size 4xTXvocab
+        
+        #evaluate the autoregressive loss at each position
+        shift_logits = logits[:, :-1, :].contiguous() #we take all the logits except the last one which is the prediction for a token outside of our window
+        shift_labels = tokens[:, 1:].contiguous() #we take all the labels except the first one as it is not having any logit prediction by the model
+        flat_shift_logits = shift_logits.view(-1, shift_logits.size(-1)) # (4, T-1, vocab_size) -> (4(T-1), vocab_size)
+        flat_shift_labels = shift_labels.view(-1) # (4, T-1) -> (4(T-1))
+
+        #compute the cross entropy loss
+        shift_losses = F.cross_entropy(flat_shift_logits, flat_shift_labels, reduction="none") # we are getting a loss for each token, size (4(T-1))
+        shift_losses = shift_losses.view(tokens.size(0), -1) # (4(T-1)) -> (4, T-1)
+
+        #apply the mask to focus on the completion region
+
+        shift_mask = (mask[..., 1:]).contiguous() # we shifted the labels so we need to shift the mask accordingly (4, T-1)
+        masked_shift_losses = shift_losses * shift_mask
+        sum_shift_losses = masked_shift_losses.sum(dim=1) # (4)
+        avg_shift_loss = sum_shift_losses / shift_mask.sum(dim=1) # (4)
+        # we pick the lowest loss out of the 4 as the most likely 
+        prediction = sum_shift_losses.argmin().item()
+        prediction_normalized = avg_shift_loss.argmin().item()
+
+        #statistics
+        num_correct += (prediction == label)
+        num_correct_normalized += (prediction_normalized == label)
+        total += 1
+        print(f"{total} acc_norm: {num_correct_normalized}/{total}={num_correct_normalized/total:.4f}")
+
+        #few examples
+        if total < 10:
+            print(f"Context:\n {example['ctx']}")
+            print(f"Endings:")
+            for i, end in enumerate(example["endings"]):
+                print(f"{i} (loss: {avg_shift_loss[i].item():.4f}) {end}")
+            print(f"predicted: {prediction_normalized}, actual: {label}")
+
+if __name__ == "__main__":
+     import argparse
+     parser = argparse.ArgumentParser()
+     parser.add_argument("-m", "--model_type", type=str, default="gpt2", help="the model type to use")
+     parser.add_argument("-d", "--device", type=str, default="cuda", help="the device to use")
+     args = parser.parse_args()
+     evaluate_model(args.model_type, args.device)

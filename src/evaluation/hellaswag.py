@@ -43,7 +43,7 @@ from transformers import GPT2LMHeadModel
 local_path = "data/hellaswag"
 
 # create the local path and the cache if it doesn't exist
-DATA_CACHE_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), local_path)
+DATA_CACHE_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "data", "hellaswag")
 
 
 hellaswags = {

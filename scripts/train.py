@@ -93,7 +93,7 @@ def main():
     )
 
     # Create a log directory to save the checkpoints and the logs
-    log_dir = os.path.join(os.path.dirname(__file__), "logs")
+    log_dir = os.path.join(os.path.dirname(__file__), "..", "logs")
     os.makedirs(log_dir, exist_ok=True)
     log_file = os.path.join(log_dir, "log.txt")
     with open(log_file, "w") as f:
@@ -148,7 +148,7 @@ def main():
                 num_correct_normalized += int(prediction_normalized == label)
 
             # aggregating all the stats from the different GPUs   
-            if ddp :
+            if dist_env['ddp'] :
                 total = torch.tensor(total, dtype=torch.long, device=device) #number of examples processed on this GPU
                 num_correct_normalized = torch.tensor(num_correct_normalized, dtype=torch.long, device=device) #number of correct predictions on this GPU
                 dist.all_reduce(total, op=dist.ReduceOp.SUM) #summing the total number of examples processed across all GPUs

@@ -40,7 +40,7 @@ def main():
     torch.set_float32_matmul_precision('high')
 
     # Training hyperparameters
-    max_steps = 19073 # 10e9 tokens / 2**19 tokens per step
+    max_steps = 19073 # 10e9 tokens / 2**19 tokens per step, one epoch for 10B tokens if batch size is 0.5 M tokens
     total_batch_size = 524288  # 2**19
     micro_batch_size = 64  # micro batch size (try to fit more depending on config). To stick to GPT2 we would use 32
     sequence_length = 1024  # sequence length. True GPT2 is using 2048
@@ -125,6 +125,17 @@ def main():
                 print(f"validation loss: {val_loss_accum.item():.4f}")
                 with open(log_file, "a") as f:
                     f.write(f"{step}: validation loss: {val_loss_accum.item():.4f}\n")
+                if step % 5000 ==0 or last_step:
+                    checkpoint_path = os.path.join(log_dir, f"model_{step:05d}.pt")
+                    checkpoint = {
+                     'model': raw_model.state_dict(),
+                     'config': raw_model.config,
+                     'step': step,
+                     'val_loss': val_loss_accum.item(),
+                     'optimizer': optimizer.state_dict()  
+                 }
+                    torch.save(checkpoint, checkpoint_path)
+
 
         # once in a while we compute our hellaswag evaluation
         if (step % 250 == 0 or last_step) and (not use_compile):
@@ -148,7 +159,7 @@ def main():
                 num_correct_normalized += int(prediction_normalized == label)
 
             # aggregating all the stats from the different GPUs   
-            if dist_env['ddp'] :
+            if dist_env['ddp']:
                 total = torch.tensor(total, dtype=torch.long, device=device) #number of examples processed on this GPU
                 num_correct_normalized = torch.tensor(num_correct_normalized, dtype=torch.long, device=device) #number of correct predictions on this GPU
                 dist.all_reduce(total, op=dist.ReduceOp.SUM) #summing the total number of examples processed across all GPUs

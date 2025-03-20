@@ -21,6 +21,7 @@ from src.model.config import GPT2Config
 from src.loader.data_loader import DataLoader
 from src.utils.distributed import setup_distributed, cleanup_distributed
 from src.utils.scheduler import get_lr
+from src.evaluation.hellaswag import render_hellaswag_example, iterate_examples, get_most_likely_completion
 
 def main():
     
@@ -73,7 +74,10 @@ def main():
     # Initialize model
     model = GPT2(GPT2Config(vocab_size=50304))  # Using power of 2 for efficiency
     model.to(device)
-    model = torch.compile(model)  # Enable torch.compile for optimization. If error with the sampling part, comment this line
+
+    use_compile = False
+    if use_compile:
+        model = torch.compile(model)  # Enable torch.compile for optimization. Currently it gives an error with the Hellaswag evaluation so we don't use it
     
     if dist_env['ddp']:
         model = DDP(model, device_ids=[dist_env['local_rank']])
@@ -88,12 +92,20 @@ def main():
         master_process=master_process
     )
 
+    # Create a log directory to save the checkpoints and the logs
+    log_dir = os.path.join(os.path.dirname(__file__), "logs")
+    os.makedirs(log_dir, exist_ok=True)
+    log_file = os.path.join(log_dir, "log.txt")
+    with open(log_file, "w") as f:
+        pass
+
     # Training loop
     for step in range(max_steps): 
         t0 = time.time()
+        last_step = (step==max_steps-1)
 
         # once in a while evaluate our validation loss
-        if step % 100 == 0 and step > 0:
+        if step % 250 == 0 or last_step:
             model.eval()
             val_loader.reset()
             with torch.no_grad():
@@ -111,9 +123,48 @@ def main():
                 dist.all_reduce(val_loss_accum, op=dist.ReduceOp.AVG)
             if master_process:
                 print(f"validation loss: {val_loss_accum.item():.4f}")
+                with open(log_file, "a") as f:
+                    f.write(f"{step}: validation loss: {val_loss_accum.item():.4f}\n")
 
+        # once in a while we compute our hellaswag evaluation
+        if (step % 250 == 0 or last_step) and (not use_compile):
+            num_correct_normalized = 0
+            total = 0
+            for index, example in enumerate(iterate_examples("val")):
+                # This makes sure that each process is handling a different example
+                if index % dist_env['world_size'] != dist_env['rank']:
+                    continue
+
+                # Render the example
+                _, tokens, mask, label = render_hellaswag_example(example)
+                tokens, mask= tokens.to(device), mask.to(device)
+
+                # Get the logits
+                with torch.no_grad(): # we don't want to compute the gradient because this is an evaluation
+                    with torch.autocast(device_type=device, dtype=torch.bfloat16): # we use bfloat16 for faster computation
+                        logits, loss = model(tokens)
+                    prediction_normalized = get_most_likely_completion(tokens, mask, logits)
+                total += 1
+                num_correct_normalized += int(prediction_normalized == label)
+
+            # aggregating all the stats from the different GPUs   
+            if ddp :
+                total = torch.tensor(total, dtype=torch.long, device=device) #number of examples processed on this GPU
+                num_correct_normalized = torch.tensor(num_correct_normalized, dtype=torch.long, device=device) #number of correct predictions on this GPU
+                dist.all_reduce(total, op=dist.ReduceOp.SUM) #summing the total number of examples processed across all GPUs
+                dist.all_reduce(num_correct_normalized, op=dist.ReduceOp.SUM) #summing the total number of correct predictions across all GPUs
+                total = total.item() #converting to python scalar
+                num_correct_normalized = num_correct_normalized.item() #converting to python scalar
+            acc_norm = num_correct_normalized / total
+
+            if master_process:
+                print(f"Hellaswag accuracy normalized: {num_correct_normalized}/{total}={acc_norm:.4f}")
+                with open(log_file, "a") as f:
+                    f.write(f"{step}: Hellaswag accuracy normalized: {acc_norm:.4f}\n")
+                
+                    
         # once in a while we sample from the model, except for the first step
-        if step % 100 == 0 and step > 0:
+        if (step % 250 == 0 or last_step) and (not use_compile):
             model.eval()
             num_return_sequences = 4 # number of samples to generate
             max_length = 32 # maximum length of the generated text
@@ -125,20 +176,22 @@ def main():
             while tokens_gen.size(1) < max_length:
                 # generate logits by forward pass
                 with torch.no_grad():
-                    logits, loss = model(tokens_gen) # forward pass (B, T, vocab_size)
+                    with torch.autocast(device_type=device, dtype=torch.bfloat16): # we use bfloat16 for faster computation
+                        logits, loss = model(tokens_gen) # forward pass (B, T, vocab_size)
                     logits = logits[:, -1, :] # get the last token logits (B, vocab_size)
                     probs = nn.functional.softmax(logits, dim=-1) # apply softmax to get probabilities 
                     topk_probs, topk_indices = torch.topk(probs, 50, dim=-1) # get the top 50 probabilities and indices (B, 50)
                     ix = torch.multinomial(topk_probs, num_samples=1, generator=sample_rng) # sample from the top 50 probabilities (B, 1)
                     xcol = torch.gather(topk_indices, dim=-1, index=ix) # gather the corresponding indices (B, 1)
                     tokens_gen = torch.cat((tokens_gen, xcol), dim=1) # concatenate the new tokens (B, T+1)
-                # print the generated text
+           
+            # print the generated text
             for i in range(num_return_sequences):
                 tokens = tokens_gen[i, :max_length].tolist()
                 decoded = tokenizer.decode(tokens)
                 print(f"rank {dist_env['rank']} sample {i}: {decoded}")
 
-        # training loop
+        # one step of optimization
         model.train()
         optimizer.zero_grad()
         loss_accum = 0.0
@@ -186,6 +239,8 @@ def main():
                 f"Time {dt:.2f}ms | "
                 f"Tokens/s {tokens_per_second:.2f}"
             )
+            with open(log_file, "a") as f:
+                f.write(f"{step}: Loss {loss_accum.item():.6f} | Grad Norm {norm:.4f} | LR {lr:.4e} | Time {dt:.2f}ms | Tokens/s {tokens_per_second:.2f}\n")
 
     cleanup_distributed()
 

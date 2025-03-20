@@ -126,7 +126,28 @@ def render_hellaswag_example(example:dict):
     
     return data, tokens, mask, label
 
+def get_most_likely_completion(tokens, mask, logits):
+    #evaluate the autoregressive loss at each position
+        shift_logits = logits[:, :-1, :].contiguous() #we take all the logits except the last one which is the prediction for a token outside of our window
+        shift_labels = tokens[:, 1:].contiguous() #we take all the labels except the first one as it is not having any logit prediction by the model
+        flat_shift_logits = shift_logits.view(-1, shift_logits.size(-1)) # (4, T-1, vocab_size) -> (4(T-1), vocab_size)
+        flat_shift_labels = shift_labels.view(-1) # (4, T-1) -> (4(T-1))
 
+        #compute the cross entropy loss
+        shift_losses = F.cross_entropy(flat_shift_logits, flat_shift_labels, reduction="none") # we are getting a loss for each token, size (4(T-1))
+        shift_losses = shift_losses.view(tokens.size(0), -1) # (4(T-1)) -> (4, T-1)
+
+        #apply the mask to focus on the completion region
+
+        shift_mask = (mask[..., 1:]).contiguous() # we shifted the labels so we need to shift the mask accordingly (4, T-1)
+        masked_shift_losses = shift_losses * shift_mask
+        sum_shift_losses = masked_shift_losses.sum(dim=1) # (4)
+        avg_shift_loss = sum_shift_losses / shift_mask.sum(dim=1) # (4)
+        # we pick the lowest loss out of the 4 as the most likely 
+        prediction_normalized = avg_shift_loss.argmin().item()
+
+        return prediction_normalized
+    
 
     
 def iterate_examples(split):

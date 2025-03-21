@@ -134,3 +134,27 @@ While working on this project, I've learned some useful commands and techniques,
      - Maximum gradient norm set to 1.0
 
 ---
+
+## Results
+
+### Training Loss Over Time
+![Training Loss](results/train_loss.png)
+
+Just like Andrej Karpathy noticed it, we have some weird issue with the training loss, certainly due to the way our data is loaded.
+
+### Validation Loss Over Time (with GPT-2 124M Baseline)
+![Validation Loss](results/val_loss.png)
+
+We are outranking GPT2 on our validation loss even though it's not a fair comparison.
+
+> **Baseline (GPT-2 124M)**: Loss = **3.2924**
+
+
+### Hellaswag Accuracy Over Time (with GPT-2 124M Baseline)
+![Hellaswag Accuracy](results/hellaswag.png)
+
+We are not outranking GPT2 on our Hellaswag Accuracy. It is to be noted that we only trained on one epoch of 10B tokens while GPT2 was trained on 100B tokens. 
+
+> **Baseline (GPT-2 124M)**: Accuracy = **0.294463**
+
+Would love to tune it more, but GPUs don't exactly grow on trees yet in 2025!

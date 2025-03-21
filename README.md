@@ -39,6 +39,10 @@ While working on this project, I've learned some useful commands and techniques,
      rsync -avz --progress -e "ssh -p <PORT>" "<LOCAL_PATH>" <USER>@<REMOTE_HOST>:<REMOTE_PATH>/
      ```
    - This ensures only modified files are transferred, saving time.
+   - To transfer files from remote to local:
+     ```bash
+     rsync -avz --progress -e "ssh -p <PORT>" <USER>@<REMOTE_HOST>:<REMOTE_PATH> "<LOCAL_PATH>"
+     ```
 
 ### 5. **Disable Auto-Tmux in SSH Sessions**
    - If the remote server automatically launches `tmux` and you want to disable it:

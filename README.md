@@ -140,7 +140,7 @@ While working on this project, I've learned some useful commands and techniques,
 ### Training Loss Over Time
 ![Training Loss](results/train_loss.png)
 
-Just like Andrej Karpathy noticed it, we have some weird issue with the training loss, certainly due to the way our data is loaded.
+Just like Andrej Karpathy noticed it, we have some weird issue with the training loss, certainly due to the way our data is loaded. Our training loss curve looks decent but as we can observe, there is a tiny step up in the middle.
 
 ### Validation Loss Over Time (with GPT-2 124M Baseline)
 ![Validation Loss](results/val_loss.png)

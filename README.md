@@ -1,3 +1,9 @@
+
+## 🚫 Vibe Coding Disclaimer
+
+**Disclaimer**  
+This repository was **not** created using “vibe coding.”
+
 # GPT2-From-Scratch
 
 A repository where I try to code GPT-2 from scratch by learning from Andrej Karpathy. The main goal of this project is to understand how is a GPT like model working under the hood by implementing it. This model tries to stick as close as possible to the information given in the GPT2 and GPT3 paper and as mentionned above, I implemented it by relying highly on this tutorial which is pure gold : https://youtu.be/l8pRSuU81PU?si=adpI_CVHitmNdv9G
@@ -159,7 +165,3 @@ We are not outranking GPT2 on our Hellaswag Accuracy. It is to be noted that we 
 
 Would love to tune it more, but GPUs don't exactly grow on trees yet in 2025!
 
-## 🚫 Vibe Coding Disclaimer
-
-**Disclaimer**  
-This repository was **not** created using “vibe coding.”

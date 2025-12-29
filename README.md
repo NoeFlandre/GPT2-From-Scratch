@@ -158,3 +158,8 @@ We are not outranking GPT2 on our Hellaswag Accuracy. It is to be noted that we 
 > **Baseline (GPT-2 124M)**: Accuracy = **0.294463**
 
 Would love to tune it more, but GPUs don't exactly grow on trees yet in 2025!
+
+## 🚫 Vibe Coding Disclaimer
+
+**Disclaimer**  
+This repository was **not** created using “vibe coding.”

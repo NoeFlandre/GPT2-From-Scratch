@@ -1,3 +1,5 @@
+![gpt logo](logo.png)
+
 
 ## 🚫 Vibe Coding Disclaimer
 

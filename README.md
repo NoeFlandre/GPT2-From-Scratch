@@ -169,3 +169,7 @@ We are not outranking GPT2 on our Hellaswag Accuracy. It is to be noted that we 
 
 Would love to tune it more, but GPUs don't exactly grow on trees yet in 2025!
 
+
+## Trained model weights
+
+The final training checkpoint (step 19072) is available on [Hugging Face](https://huggingface.co/NoeFlandre/GPT2-From-Scratch) as float32 `safetensors` weights, with an accompanying model card.

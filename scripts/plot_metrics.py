@@ -1,6 +1,7 @@
 import re
+import pandas as pd
 
-def parse_log(log_file_path):
+def create_dataframes(log_file_path):
 
     # Initialize lists to store the data
     train_steps = []
@@ -47,8 +48,27 @@ def parse_log(log_file_path):
     print(f"Parsed {len(val_steps)} validation steps")
     print(f"Parsed {len(hellaswag_accuracies)} Hellaswag accuracy entries")
 
-    return train_steps, train_losses, val_steps, val_losses, hellaswag_accuracies
+    # Create DataFrames
+    train_df = pd.DataFrame({
+        'Step': train_steps,
+        'Loss': train_losses
+    })
+
+    val_df = pd.DataFrame({
+        'Step': val_steps,
+        'Loss': val_losses,
+        'Hellaswag Accuracy': hellaswag_accuracies
+    })
+
+    # Display the first few rows of each DataFrame
+    print("Training Data:")
+    display(train_df.head())
+
+    print("\nValidation Data:")
+    display(val_df.head())
+
+    return train_df, val_df
 
 
 if __name__ == "__main__":
-    parse_log('../logs/log.txt')
+    create_dataframes('../logs/log.txt')

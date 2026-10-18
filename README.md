@@ -6,7 +6,7 @@
 ## 🚫 Vibe Coding Disclaimer
 
 **Disclaimer**  
-This repository was **not** created using “vibe coding.”
+This repository was **not** vibecoded. My intent with this project is simply to code everything by hand and learn.
 
 # GPT2-From-Scratch
 

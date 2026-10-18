@@ -8,7 +8,6 @@ import numpy as np
 
 # One improvement would be to shuffle the documents in the dataset when running the next epoch because the order of the documents should not matter
 
-
 # load the tokens from a numpy file and return a torch tensor
 def load_tokens(filename):
     npt = np.load(filename)
@@ -38,7 +37,7 @@ class DataLoader:
             print(f"Found {len(shards)} shards for split {split}") # number of shards
 
         self.reset()
-        
+
         if master_process:
             print(f"1 epoch = {len(self.tokens) // (self.B * self.T)} batches") # number of batches during 1 epoch
 

@@ -171,4 +171,5 @@ cython_debug/
 .pypirc
 
 # Specific model files
-logs/model_19072.pt
+logs/*.pt
+.DS_Store

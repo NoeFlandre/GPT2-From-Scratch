@@ -24,7 +24,7 @@ from src.utils.scheduler import get_lr
 from src.evaluation.hellaswag import render_hellaswag_example, iterate_examples, get_most_likely_completion
 
 def main():
-    
+
     # Set up distributed environment
     dist_env = setup_distributed()
     device = dist_env['device']
@@ -78,10 +78,10 @@ def main():
     use_compile = False
     if use_compile:
         model = torch.compile(model)  # Enable torch.compile for optimization. Currently it gives an error with the Hellaswag evaluation so we don't use it
-    
+
     if dist_env['ddp']:
         model = DDP(model, device_ids=[dist_env['local_rank']])
-    
+
     raw_model = model.module if dist_env['ddp'] else model
 
     # Initialize optimizer
@@ -100,7 +100,7 @@ def main():
         pass
 
     # Training loop
-    for step in range(max_steps): 
+    for step in range(max_steps):
         t0 = time.time()
         last_step = (step==max_steps-1)
 
@@ -118,7 +118,7 @@ def main():
                         logits, loss = model(x, y)
                     loss = loss / val_loss_steps
                     val_loss_accum += loss.detach()
-                    
+
             if dist_env['ddp']:
                 dist.all_reduce(val_loss_accum, op=dist.ReduceOp.AVG)
             if master_process:
@@ -132,7 +132,7 @@ def main():
                      'config': raw_model.config,
                      'step': step,
                      'val_loss': val_loss_accum.item(),
-                     'optimizer': optimizer.state_dict()  
+                     'optimizer': optimizer.state_dict()
                  }
                     torch.save(checkpoint, checkpoint_path)
 
@@ -158,7 +158,7 @@ def main():
                 total += 1
                 num_correct_normalized += int(prediction_normalized == label)
 
-            # aggregating all the stats from the different GPUs   
+            # aggregating all the stats from the different GPUs
             if dist_env['ddp']:
                 total = torch.tensor(total, dtype=torch.long, device=device) #number of examples processed on this GPU
                 num_correct_normalized = torch.tensor(num_correct_normalized, dtype=torch.long, device=device) #number of correct predictions on this GPU
@@ -172,8 +172,8 @@ def main():
                 print(f"Hellaswag accuracy normalized: {num_correct_normalized}/{total}={acc_norm:.4f}")
                 with open(log_file, "a") as f:
                     f.write(f"{step}: Hellaswag accuracy normalized: {acc_norm:.4f}\n")
-                
-                    
+
+
         # once in a while we sample from the model, except for the first step
         if (step % 250 == 0 or last_step) and (not use_compile):
             model.eval()
@@ -190,12 +190,12 @@ def main():
                     with torch.autocast(device_type=device, dtype=torch.bfloat16): # we use bfloat16 for faster computation
                         logits, loss = model(tokens_gen) # forward pass (B, T, vocab_size)
                     logits = logits[:, -1, :] # get the last token logits (B, vocab_size)
-                    probs = nn.functional.softmax(logits, dim=-1) # apply softmax to get probabilities 
+                    probs = nn.functional.softmax(logits, dim=-1) # apply softmax to get probabilities
                     topk_probs, topk_indices = torch.topk(probs, 50, dim=-1) # get the top 50 probabilities and indices (B, 50)
                     ix = torch.multinomial(topk_probs, num_samples=1, generator=sample_rng) # sample from the top 50 probabilities (B, 1)
                     xcol = torch.gather(topk_indices, dim=-1, index=ix) # gather the corresponding indices (B, 1)
                     tokens_gen = torch.cat((tokens_gen, xcol), dim=1) # concatenate the new tokens (B, T+1)
-           
+
             # print the generated text
             for i in range(num_return_sequences):
                 tokens = tokens_gen[i, :max_length].tolist()
@@ -213,10 +213,10 @@ def main():
             y = y.to(device)
 
             # Use bfloat16 mixed precision for forward pass and loss computation
-            with torch.autocast(device_type='cuda', dtype=torch.bfloat16):
+            with torch.autocast(device_type=device, dtype=torch.bfloat16):
                 logits, loss = model(x, y)
                 loss = loss / grad_accum_steps
-            
+
             loss_accum += loss.detach()
             if dist_env['ddp']:
                 model.require_backward_grad_sync = (micro_step == grad_accum_steps - 1)
@@ -238,7 +238,8 @@ def main():
 
         # Logging
         if master_process:
-            torch.cuda.synchronize()
+            if device.startswith("cuda"):
+                torch.cuda.synchronize()
             t1 = time.time()
             dt = (t1 - t0) * 1000  # ms
             tokens_per_second = (train_loader.B * train_loader.T * grad_accum_steps * dist_env['world_size']) / (t1 - t0)

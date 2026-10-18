@@ -22,6 +22,7 @@ from src.loader.data_loader import DataLoader
 from src.utils.distributed import setup_distributed, cleanup_distributed
 from src.utils.scheduler import get_lr
 from src.evaluation.hellaswag import render_hellaswag_example, iterate_examples, get_most_likely_completion
+from src.utils.train_config import TrainConfig
 
 def main():
 
@@ -40,10 +41,11 @@ def main():
     torch.set_float32_matmul_precision('high')
 
     # Training hyperparameters
-    max_steps = 19073 # 10e9 tokens / 2**19 tokens per step, one epoch for 10B tokens if batch size is 0.5 M tokens
-    total_batch_size = 524288  # 2**19
-    micro_batch_size = 64  # micro batch size (try to fit more depending on config). To stick to GPT2 we would use 32
-    sequence_length = 1024  # sequence length. True GPT2 is using 2048
+    cfg = TrainConfig()
+    max_steps = cfg.max_steps # 10e9 tokens / 2**19 tokens per step, one epoch for 10B tokens if batch size is 0.5 M tokens
+    total_batch_size = cfg.total_batch_size  # 2**19
+    micro_batch_size = cfg.micro_batch_size  # micro batch size (try to fit more depending on config). To stick to GPT2 we would use 32
+    sequence_length = cfg.sequence_length  # sequence length. True GPT2 is using 2048
     assert total_batch_size % (micro_batch_size * sequence_length * dist_env['world_size']) == 0
     grad_accum_steps = total_batch_size // (micro_batch_size * sequence_length * dist_env['world_size'])
 
@@ -86,8 +88,8 @@ def main():
 
     # Initialize optimizer
     optimizer = raw_model.configure_optimizers(
-        weight_decay=0.1,
-        learning_rate=6e-4,
+        weight_decay=cfg.weight_decay,
+        learning_rate=cfg.max_lr,
         device=device,
         master_process=master_process
     )
@@ -229,7 +231,7 @@ def main():
         norm = nn.utils.clip_grad_norm_(model.parameters(), 1.0)
 
         # Update learning rate
-        lr = get_lr(step)
+        lr = get_lr(step, cfg)
         for param_group in optimizer.param_groups:
             param_group['lr'] = lr
 

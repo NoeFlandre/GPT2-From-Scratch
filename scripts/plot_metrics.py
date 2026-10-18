@@ -19,6 +19,7 @@ def parse_log(log_file_path):
     val_steps = []
     val_losses = []
     hellaswag_accuracies = []
+    hellaswag_steps = []
 
     # Regular expressions to match the different log entries
     train_loss_pattern = re.compile(r'^(\d+): Loss (\d+\.\d+)')
@@ -49,19 +50,22 @@ def parse_log(log_file_path):
             # Check for Hellaswag accuracy
             hellaswag_match = hellaswag_pattern.match(line)
             if hellaswag_match:
+                step = int(hellaswag_match.group(1))
                 accuracy = float(hellaswag_match.group(2))
+                hellaswag_steps.append(step)
                 hellaswag_accuracies.append(accuracy)
                 continue
 
     print(f"Parsed {len(train_steps)} training steps")
     print(f"Parsed {len(val_steps)} validation steps")
+    print(f"Parsed {len(hellaswag_steps)} Hellaswag steps")
     print(f"Parsed {len(hellaswag_accuracies)} Hellaswag accuracy entries")
 
-    return train_steps, train_losses, val_steps, val_losses, hellaswag_accuracies
+    return train_steps, train_losses, val_steps, val_losses, hellaswag_steps, hellaswag_accuracies
 
 def create_dataframes(log_file_path):
 
-    train_steps, train_losses, val_steps, val_losses, hellaswag_accuracies = parse_log(log_file_path)
+    train_steps, train_losses, val_steps, val_losses, hellaswag_steps, hellaswag_accuracies = parse_log(log_file_path)
 
     # Create DataFrames
     train_df = pd.DataFrame({
@@ -72,8 +76,14 @@ def create_dataframes(log_file_path):
     val_df = pd.DataFrame({
         'Step': val_steps,
         'Loss': val_losses,
-        'Hellaswag Accuracy': hellaswag_accuracies
     })
+
+    hellaswag_df = pd.DataFrame({
+        'Step': hellaswag_steps,
+        'Hellaswag Accuracy': hellaswag_accuracies,
+    })
+
+    val_df = val_df.merge(hellaswag_df, on="Step", how="left")
 
     # Display the first few rows of each DataFrame
     print("Training Data:")
